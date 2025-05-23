@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package user;
+
+option go_package = "/gen;pb";
+
+service UserService {
+  // 用户注册
+  rpc Register(RegisterRequest) returns (RegisterResponse) {}
+  // 用户登录
+  rpc Login(LoginRequest) returns (LoginResponse) {}
+  // 获取用户信息
+  rpc GetUserInfo(GetUserInfoRequest) returns (GetUserInfoResponse) {}
+}
+
+// 注册请求
+message RegisterRequest {
+  string username = 1;
+  string password = 2;
+  string likes = 3; // 用户喜好，用于生成embedding
+}
+
+// 注册响应
+message RegisterResponse {
+  bool success = 1;
+  string user_id = 2;
+  string error_message = 3;
+}
+
+// 登录请求
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+// 登录响应
+message LoginResponse {
+  bool success = 1;
+  string token = 2; // JWT token
+  string error_message = 3;
+}
+
+// 获取用户信息请求
+message GetUserInfoRequest {
+  string user_id = 1;
+}
+
+// 获取用户信息响应
+message GetUserInfoResponse {
+  string user_id = 1;
+  string username = 2;
+  string likes = 3;
+  repeated float like_embedding = 4; // 用户喜好的embedding向量
+  string error_message = 5;
+}

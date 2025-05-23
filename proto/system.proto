@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package system;
+
+option go_package = "/gen;pb";
+
+service SystemService {
+  // 发送文件（流式传输）
+  rpc SendFile(SendFileRequest) returns (stream FileChunk) {}
+}
+
+// 发送文件请求
+message SendFileRequest {
+  string file_path = 1;
+}
+
+// 文件块
+message FileChunk {
+  bytes content = 1;
+}
