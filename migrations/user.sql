@@ -15,4 +15,4 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS like_embedding_idx ON users USING ivfflat (like_embedding vector_cosine_ops) WITH (lists = 100);
 
 -- 通过命令
--- psql -h localhost -p 5432 -U user -d user_db -f path/to/your/code/user.sql
+-- psql -h localhost -p 5432 -U mkitsdts -d tx_test

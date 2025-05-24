@@ -12,7 +12,6 @@ services:
       POSTGRES_PASSWORD: mkitsdts
       POSTGRES_DB: tx_test
     volumes:
-      # 将数据库数据持久化到本地，避免容器删除后数据丢失
       - postgres_data:/var/lib/postgresql/data
       - ./migrations:/docker-entrypoint-initdb.d
     healthcheck:
@@ -21,7 +20,7 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
-    restart: unless-stopped # 容器退出后自动重启
+    restart: unless-stopped
 
   # --- Redis ---
   redis:
@@ -44,11 +43,8 @@ services:
     image: jaegertracing/all-in-one:latest
     container_name: jaeger
     ports:
-      # UI 端口
       - "16686:16686"
-      # Collector HTTP 端口
       - "14268:14268"
-      # Agent Thrift UDP 端口
       - "6831:6831/udp"
     restart: unless-stopped
 

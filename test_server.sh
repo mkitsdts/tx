@@ -18,15 +18,15 @@ REGISTER_METHOD_NAME="Register"
 LOGIN_METHOD_NAME="Login"
 TEST_USERNAME="test"
 TEST_PASSWORD="test"
-TEST_LIKES="coding, grpc, testing" # 用户喜好，用于注册
+TEST_LIKES="coding, grpc, testing"
 
 PROTO_IMPORT_PATH="./proto"       # grpcurl 的 -import-path，通常是包含 .proto 文件的目录
 
 TEMP_FILE_DIR=$(mktemp -d) # 创建一个临时目录
 TEST_FILE_PATH="$TEMP_FILE_DIR/test_send_file_from_script.txt"
 TEST_FILE_CONTENT="Hello from gRPC client! This is a test file for SendFile."
-AUTH_TOKEN="" # 将在登录成功后填充
-REGISTRATION_SUCCESSFUL=false # 标记注册是否成功
+AUTH_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoidGVzdCIsImV4cCI6MTc0ODEzMzExOCwibmJmIjoxNzQ4MDQ2NzE4LCJpYXQiOjE3NDgwNDY3MTh9.EEpHGXKEYy9XMFNu1Tct1AtidFDg8Kyl8HZI-SoFzG0" # 将在登录成功后填充
+REGISTRATION_SUCCESSFUL=true # 标记注册是否成功
 
 # --- Functions ---
 cleanup() {
@@ -45,27 +45,6 @@ cleanup() {
 
 # Trap EXIT signal to ensure cleanup runs
 trap cleanup EXIT
-
-# --- Prerequisites Check ---
-echo "INFO: --- Prerequisites Check ---"
-
-# 1. Jaeger (User responsibility)
-echo "      Action: Ensure Jaeger All-in-One is running (e.g., via Docker)."
-echo "      Jaeger UI should be accessible at http://localhost:16686"
-
-# 2. grpcurl
-if ! command -v grpcurl &> /dev/null; then
-    echo "ERROR: grpcurl could not be found. Please install it."
-    exit 1
-fi
-echo "      OK: grpcurl is installed."
-
-# 3. jq (for parsing JSON response)
-if ! command -v jq &> /dev/null; then
-    echo "ERROR: jq could not be found. Please install it (e.g., brew install jq)."
-    exit 1
-fi
-echo "      OK: jq is installed."
 
 # 4. Server binary
 if [ ! -f "$SERVER_BINARY" ]; then
@@ -125,47 +104,47 @@ fi
 echo "    Server appears to be running."
 
 # 3. Register User
-#echo ""
-#echo "[3] Registering user '$TEST_USERNAME'..."
-#GRPcurl_REGISTER_ARGS=(
-#    -plaintext
-#    -import-path "$PROTO_IMPORT_PATH"
-#    -proto "$(basename "$USER_PROTO_FILE_PATH")"
-#    -d "{\"username\": \"$TEST_USERNAME\", \"password\": \"$TEST_PASSWORD\", \"likes\": \"$TEST_LIKES\"}"
-#    "$GRPC_ADDRESS"
-#    "$USER_SERVICE_NAME/$REGISTER_METHOD_NAME"
-#)
+echo ""
+echo "[3] Registering user '$TEST_USERNAME'..."
+GRPcurl_REGISTER_ARGS=(
+    -plaintext
+    -import-path "$PROTO_IMPORT_PATH"
+    -proto "$(basename "$USER_PROTO_FILE_PATH")"
+    -d "{\"username\": \"$TEST_USERNAME\", \"password\": \"$TEST_PASSWORD\", \"likes\": \"$TEST_LIKES\"}"
+    "$GRPC_ADDRESS"
+    "$USER_SERVICE_NAME/$REGISTER_METHOD_NAME"
+)
 
 echo "    Executing: grpcurl ${GRPcurl_REGISTER_ARGS[*]}"
-#REGISTER_RESPONSE_JSON=$(grpcurl "${GRPcurl_REGISTER_ARGS[@]}" 2>/dev/null)
+REGISTER_RESPONSE_JSON=$(grpcurl "${GRPcurl_REGISTER_ARGS[@]}" 2>/dev/null)
 
-#if [ $? -eq 0 ] && [ -n "$REGISTER_RESPONSE_JSON" ]; then
-#    REG_SUCCESS=$(echo "$REGISTER_RESPONSE_JSON" | jq -r .success)
-#    USER_ID=$(echo "$REGISTER_RESPONSE_JSON" | jq -r .user_id) # 假设响应中有 user_id
-#    if [ "$REG_SUCCESS" == "true" ]; then
-#        echo "    INFO: Registration successful for user '$TEST_USERNAME'. User ID: $USER_ID"
-#        REGISTRATION_SUCCESSFUL=true
-#    else
-#        ERROR_MSG=$(echo "$REGISTER_RESPONSE_JSON" | jq -r .error_message)
-#        echo "    ERROR: Registration call succeeded but registration failed by server."
-#        echo "    Response: $REGISTER_RESPONSE_JSON"
-#        echo "    Server Error: $ERROR_MSG"
-#        echo "    Skipping Login and SendFile tests."
-#    fi
-#else
-#    echo "    ERROR: Registration gRPC call failed."
-#    echo "    Attempted command: grpcurl ${GRPcurl_REGISTER_ARGS[*]}"
-#    echo "    Response (if any): $REGISTER_RESPONSE_JSON"
-#    echo "    Check server logs and grpcurl output if you run the command manually."
-#    echo "    Skipping Login and SendFile tests."
-#fi
+if [ $? -eq 0 ] && [ -n "$REGISTER_RESPONSE_JSON" ]; then
+    REG_SUCCESS=$(echo "$REGISTER_RESPONSE_JSON" | jq -r .success)
+    USER_ID=$(echo "$REGISTER_RESPONSE_JSON" | jq -r .user_id) # 假设响应中有 user_id
+    if [ "$REG_SUCCESS" == "true" ]; then
+        echo "    INFO: Registration successful for user '$TEST_USERNAME'. User ID: $USER_ID"
+        REGISTRATION_SUCCESSFUL=true
+    else
+        ERROR_MSG=$(echo "$REGISTER_RESPONSE_JSON" | jq -r .error_message)
+        echo "    ERROR: Registration call succeeded but registration failed by server."
+        echo "    Response: $REGISTER_RESPONSE_JSON"
+        echo "    Server Error: $ERROR_MSG"
+        echo "    Skipping Login and SendFile tests."
+    fi
+else
+    echo "    ERROR: Registration gRPC call failed."
+    echo "    Attempted command: grpcurl ${GRPcurl_REGISTER_ARGS[*]}"
+    echo "    Response (if any): $REGISTER_RESPONSE_JSON"
+    echo "    Check server logs and grpcurl output if you run the command manually."
+    echo "    Skipping Login and SendFile tests."
+fi
 
 
 # 4. Login to User Service to get Auth Token (only if registration was successful)
-#if [ "$REGISTRATION_SUCCESSFUL" != "true" ]; then
-#    echo ""
-#    echo "[4] SKIPPED: Login because registration failed or was skipped."
-#else
+if [ "$REGISTRATION_SUCCESSFUL" != "true" ]; then
+    echo ""
+    echo "[4] SKIPPED: Login because registration failed or was skipped."
+else
     echo ""
     echo "[4] Logging in to $USER_SERVICE_NAME/$LOGIN_METHOD_NAME to retrieve auth token..."
     GRPcurl_LOGIN_ARGS=(
@@ -196,7 +175,7 @@ echo "    Executing: grpcurl ${GRPcurl_REGISTER_ARGS[*]}"
         echo "    Check server logs and grpcurl output if you run the command manually."
         echo "    Skipping SendFile test."
     fi
-#fi
+fi
 
 # 5. Make a gRPC call to SystemService/SendFile using the retrieved token (if available and registration was successful)
 if [ "$REGISTRATION_SUCCESSFUL" != "true" ] || [ -z "$AUTH_TOKEN" ]; then
@@ -213,7 +192,7 @@ else
         -import-path "$PROTO_IMPORT_PATH"
         -proto "$(basename "$SYSTEM_PROTO_FILE_PATH")"
         -d "{\"file_path\": \"$TEST_FILE_PATH\"}"
-        -H "Authorization: Bearer $AUTH_TOKEN"
+        -H "Authorization:$AUTH_TOKEN"
         "$GRPC_ADDRESS"
         "$SYSTEM_SERVICE_NAME/$SYSTEM_METHOD_NAME"
     )

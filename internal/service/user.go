@@ -36,6 +36,7 @@ func NewUserService(db *pgxpool.Pool, redis *redis.Client, logger *zap.Logger, c
 
 // Register 用户注册
 func (s *UserService) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
+	s.logger.Info("user register", zap.String("username", req.Username))
 	// 检查参数是否合理
 	if req.Username == "" || req.Password == "" {
 		return nil, status.Error(codes.InvalidArgument, "username and password cannot be empty")
@@ -46,12 +47,9 @@ func (s *UserService) Register(ctx context.Context, req *pb.RegisterRequest) (*p
 	usernameKey := "register:" + req.Username
 	// 添加重试机制
 	for i := range maxRetryTimes {
-		result, err := s.redis.Get(ctx, usernameKey).Result()
-		if err == nil {
+		_, err := s.redis.Get(ctx, usernameKey).Result()
+		if err == redis.Nil {
 			break
-		}
-		if result != "" {
-			return nil, status.Error(codes.AlreadyExists, "username already exists")
 		}
 		// 指数退避
 		durationTime := 1 << i
@@ -61,6 +59,8 @@ func (s *UserService) Register(ctx context.Context, req *pb.RegisterRequest) (*p
 		}
 	}
 	userId := utils.GenerateId()
+	go s.EnsureRedisSet(ctx, usernameKey, userId, 0)
+	go s.EnsureRedisSet(ctx, "login:"+req.Username, utils.EncryptPassword(req.Password), 0)
 	for i := range maxRetryTimes {
 		tx, err := s.db.Begin(ctx)
 		if err != nil {
@@ -86,8 +86,6 @@ func (s *UserService) Register(ctx context.Context, req *pb.RegisterRequest) (*p
 			return nil, status.Error(codes.Internal, "failed to register user")
 		}
 	}
-	go s.asyncEnsureRedisSet(ctx, usernameKey, userId, 0)
-	go s.asyncEnsureRedisSet(ctx, "login:"+userId, utils.EncryptPassword(req.Password), 0)
 	return &pb.RegisterResponse{
 		Success: true,
 		UserId:  userId,

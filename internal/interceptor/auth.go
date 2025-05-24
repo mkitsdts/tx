@@ -95,13 +95,16 @@ func (i *AuthInterceptor) authenticate(ctx context.Context) (string, error) {
 	}
 
 	tokenStr := authHeader[0]
+	if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
+		tokenStr = tokenStr[7:]
+	}
 	claims, err := utils.ParseToken(tokenStr)
 	if err != nil {
 		return "", status.Errorf(codes.Unauthenticated, "invalid token: %v", err)
 	}
 	// 获取用户ID
 	userID := claims.UserId
-	if !ok {
+	if userID == "" {
 		return "", status.Errorf(codes.Unauthenticated, "invalid token payload")
 	}
 
