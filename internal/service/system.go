@@ -44,14 +44,15 @@ func (s *SystemService) SendFile(req *pb.SendFileRequest, stream pb.SystemServic
 		// 读取文件内容
 		n, err := file.Read(buffer)
 		if err == io.EOF {
-			break // 文件读取完成
+			s.logger.Info("File read completed", zap.String("path", req.FilePath))
+			// EOF表示文件读取完成
+			break
 		}
 		if err != nil {
 			s.logger.Error("Error reading file", zap.Error(err))
 			return status.Errorf(codes.Internal, "error reading file: %v", err)
 		}
 
-		// 发送文件内容
 		if err := stream.Send(&pb.FileChunk{
 			Content: buffer[:n],
 		}); err != nil {
@@ -59,6 +60,6 @@ func (s *SystemService) SendFile(req *pb.SendFileRequest, stream pb.SystemServic
 			return status.Errorf(codes.Internal, "error sending file chunk: %v", err)
 		}
 	}
-
+	s.logger.Info("File sent successfully", zap.String("path", req.FilePath))
 	return nil
 }

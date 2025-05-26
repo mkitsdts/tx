@@ -10,7 +10,6 @@ type Config struct {
 	Postgres PostgresConfig `mapstructure:"postgres"`
 	Redis    RedisConfig    `mapstructure:"redis"`
 	Jaeger   JaegerConfig   `mapstructure:"jaeger"`
-	Pprof    PprofConfig    `mapstructure:"pprof"`
 }
 
 // GRPCConfig gRPC服务器配置
@@ -39,11 +38,6 @@ type RedisConfig struct {
 type JaegerConfig struct {
 	Endpoint    string `mapstructure:"endpoint"`
 	ServiceName string `mapstructure:"service_name"`
-}
-
-// PprofConfig pprof配置
-type PprofConfig struct {
-	Address string `mapstructure:"address"`
 }
 
 // NewConfig 创建配置

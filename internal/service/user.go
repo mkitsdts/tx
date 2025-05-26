@@ -73,6 +73,13 @@ func (s *UserService) Register(ctx context.Context, req *pb.RegisterRequest) (*p
 			s.logger.Info("user register success", zap.String("username", req.Username))
 			tx.Commit(ctx)
 			break
+		} else if err.Error() == "duplicate key value violates unique constraint \"users_username_key\"" {
+			s.logger.Error("user already exists", zap.String("username", req.Username))
+			tx.Rollback(ctx)
+			return &pb.RegisterResponse{
+				Success: false,
+				UserId:  "",
+			}, status.Error(codes.AlreadyExists, "user already exists")
 		}
 		// 指数退避
 		durationTime := 1 << i
@@ -86,6 +93,7 @@ func (s *UserService) Register(ctx context.Context, req *pb.RegisterRequest) (*p
 			return nil, status.Error(codes.Internal, "failed to register user")
 		}
 	}
+	s.logger.Info("user register completed", zap.String("username", req.Username), zap.String("userId", userId))
 	return &pb.RegisterResponse{
 		Success: true,
 		UserId:  userId,
@@ -132,6 +140,7 @@ func (s *UserService) Login(ctx context.Context, req *pb.LoginRequest) (*pb.Logi
 			Token:   "",
 		}, status.Error(codes.Internal, "failed to generate jwt")
 	}
+	s.logger.Info("user login success", zap.String("username", req.Username), zap.String("token", jwt))
 	return &pb.LoginResponse{
 		Success: true,
 		Token:   jwt,

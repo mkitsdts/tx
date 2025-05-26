@@ -2,6 +2,7 @@ package interceptor
 
 import (
 	"context"
+	"strings"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -34,6 +35,12 @@ func (i *TracerInterceptor) Unary() grpc.UnaryServerInterceptor {
 		ctx, span := tracer.Start(ctx, info.FullMethod, trace.WithSpanKind(trace.SpanKindServer))
 		defer span.End()
 
+		// 设置span的属性
+		span.SetAttributes(
+			attribute.String("rpc.method", info.FullMethod),
+			attribute.String("rpc.service", info.FullMethod[:len(info.FullMethod)-len(info.FullMethod[strings.LastIndex(info.FullMethod, "/")+1:])]),
+		)
+
 		// 从上下文中获取用户ID（如果有）
 		if userID, ok := ctx.Value(UserIDKey).(string); ok {
 			span.SetAttributes(attribute.String("user_id", userID))
@@ -44,7 +51,7 @@ func (i *TracerInterceptor) Unary() grpc.UnaryServerInterceptor {
 		if err != nil {
 			i.logger.Error("RPC failed", zap.String("method", info.FullMethod), zap.Error(err))
 		}
-
+		i.logger.Info("Tracer completed", zap.String("method", info.FullMethod), zap.Error(err))
 		return resp, err
 	}
 }
@@ -57,10 +64,15 @@ func (i *TracerInterceptor) Stream() grpc.StreamServerInterceptor {
 		info *grpc.StreamServerInfo,
 		handler grpc.StreamHandler,
 	) error {
-		tracer := otel.Tracer("grpc-server")
+		tracer := otel.Tracer("tx-service")
 		ctx, span := tracer.Start(ss.Context(), info.FullMethod, trace.WithSpanKind(trace.SpanKindServer))
 		defer span.End()
 
+		// 设置span的属性
+		span.SetAttributes(
+			attribute.String("rpc.method", info.FullMethod),
+			attribute.String("rpc.service", info.FullMethod[:len(info.FullMethod)-len(info.FullMethod[strings.LastIndex(info.FullMethod, "/")+1:])]),
+		)
 		// 从上下文中获取用户ID（如果有）
 		if userID, ok := ctx.Value(UserIDKey).(string); ok {
 			span.SetAttributes(attribute.String("user_id", userID))
@@ -76,7 +88,7 @@ func (i *TracerInterceptor) Stream() grpc.StreamServerInterceptor {
 		if err != nil {
 			i.logger.Error("Stream RPC failed", zap.String("method", info.FullMethod), zap.Error(err))
 		}
-
+		i.logger.Info("Stream Tracer completed", zap.String("method", info.FullMethod), zap.Error(err))
 		return err
 	}
 }
